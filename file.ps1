@@ -1,20 +1,9 @@
-# Check if the ImportExcel module is available
-if (-not (Get-Module -ListAvailable -Name ImportExcel)) {
-    # If not, install it
-    Write-Output "Installing the ImportExcel module..."
-    Install-Module -Name ImportExcel -Scope CurrentUser -Force
-    Import-Module ImportExcel
-} else {
-    # If already installed, just import it
-    Import-Module ImportExcel
-}
-
 # Define column names
 $columnName1 = "ControlHeader"
 $columnName2 = "ControlHeader2"
 
 # Get all CSV and Excel files in the current directory
-$filePaths = Get-ChildItem -Filter '*.csv,*.xlsx'
+$filePaths = Get-ChildItem -Filter '{*.csv,*.xlsx}'
 
 # Process each file
 foreach ($filePath in $filePaths) {
@@ -25,11 +14,28 @@ foreach ($filePath in $filePaths) {
         continue
     }
 
+    # Variable to hold data
+    $data = @()
+
     # Import the file based on its type
     if ($filePath.Extension -eq '.csv') {
         $data = Import-Csv -Path $filePath.FullName
     } elseif ($filePath.Extension -eq '.xlsx') {
-        $data = Import-Excel -Path $filePath.FullName
+        # Create a new Excel application object
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $false
+        $workbook = $excel.Workbooks.Open($filePath.FullName)
+        $worksheet = $workbook.Worksheets.Item(1)
+        $range = $worksheet.UsedRange
+        $data = $range.Value2 | ConvertTo-Csv -Delimiter "," -NoTypeInformation | ConvertFrom-Csv
+
+        # Close Excel without saving and release COM objects
+        $excel.Quit()
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($worksheet) | Out-Null
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($workbook) | Out-Null
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
     } else {
         Write-Warning "Unsupported file type for $($filePath.Name)"
         continue
@@ -57,6 +63,27 @@ foreach ($filePath in $filePaths) {
     if ($filePath.Extension -eq '.csv') {
         $data | Export-Csv -Path $newFilePath -NoTypeInformation -Delimiter ","
     } elseif ($filePath.Extension -eq '.xlsx') {
-        $data | Export-Excel -Path $newFilePath
+        # Open Excel again for saving data
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $false
+        $workbook = $excel.Workbooks.Add()
+        $worksheet = $workbook.Worksheets.Item(1)
+        $worksheet.Name = "Processed Data"
+        
+        # Convert data to a format suitable for Excel and populate the worksheet
+        $dataArray = $data | ConvertTo-Csv -Delimiter "," -NoTypeInformation | ConvertFrom-Json
+        $worksheet.Range("A1").Resize($dataArray.Length, $dataArray[0].Length).Value = $dataArray
+
+        # Save the workbook
+        $workbook.SaveAs($newFilePath)
+        $workbook.Close($true)
+        $excel.Quit()
+        
+        # Release COM objects again
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($worksheet) | Out-Null
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($workbook) | Out-Null
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
     }
 }
