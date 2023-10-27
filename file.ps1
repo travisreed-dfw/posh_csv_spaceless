@@ -17,10 +17,9 @@ foreach ($csvPath in $csvFiles) {
     # Read the CSV file, replace spaces first, then replace question marks
     $content = Get-Content -Path $csvPath.FullName -Raw -Encoding Default
     $noSpacesContent = $content -replace ' ', ''
-    $finalContent = $noSpacesContent -replace '\?', ''
     
     # Convert the string content back to CSV object for structured manipulation
-    $csvData = $finalContent | ConvertFrom-Csv
+    $csvData = $noSpacesContent | ConvertFrom-Csv
 
     # Update the specified columns
     foreach ($row in $csvData) {
@@ -31,12 +30,20 @@ foreach ($csvPath in $csvFiles) {
             $row.$columnName2 = $row.$columnName2 -replace ',', ', '
         }
     }
+    
+    # Remove all question marks from the entire CSV data
+    $csvData = $csvData | ForEach-Object {
+        $_.PSObject.Properties | ForEach-Object {
+            $_.Value = $_.Value -replace '\?', ''
+        }
+        return $_
+    }
 
     # Generate the new filename with date and time appended
     $currentDate = Get-Date -Format "yyyyMMdd_HHmm"
     $newFileName = "$($csvPath.BaseName)_$currentDate.csv"
     $newFilePath = Join-Path -Path $csvPath.DirectoryName -ChildPath $newFileName
 
-    # Save the modified content to the new CSV file
-    $csvData | Export-Csv -Path $newFilePath -NoTypeInformation
+    # Save the modified content to the new CSV file with Default encoding
+    $csvData | Export-Csv -Path $newFilePath -NoTypeInformation -Encoding Default
 }
