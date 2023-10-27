@@ -14,12 +14,13 @@ foreach ($csvPath in $csvFiles) {
         continue
     }
 
-    # Read the CSV file and replace spaces
+    # Read the CSV file, replace spaces first, then replace question marks
     $content = Get-Content -Path $csvPath.FullName -Raw -Encoding Default
     $noSpacesContent = $content -replace ' ', ''
-
+    $finalContent = $noSpacesContent -replace '\?', ''
+    
     # Convert the string content back to CSV object for structured manipulation
-    $csvData = $noSpacesContent | ConvertFrom-Csv
+    $csvData = $finalContent | ConvertFrom-Csv
 
     # Update the specified columns
     foreach ($row in $csvData) {
