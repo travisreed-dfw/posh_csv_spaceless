@@ -5,21 +5,6 @@ $columnName2 = "ControlHeader2"
 # Get all CSV files in the current directory
 $csvFiles = Get-ChildItem -Filter *.csv
 
-# Function to detect file encoding
-function Get-FileEncoding {
-    param([string]$path)
-    
-    [byte[]]$byte = get-content -Encoding byte -ReadCount 4 -TotalCount 4 -Path $path
-    
-    if ($byte[0] -eq 0x2b -and $byte[1] -eq 0x2f -and $byte[2] -eq 0x76) { return New-Object System.Text.UTF7Encoding }
-    if ($byte[0] -eq 0xef -and $byte[1] -eq 0xbb -and $byte[2] -eq 0xbf) { return New-Object System.Text.UTF8Encoding }
-    if ($byte[0] -eq 0xff -and $byte[1] -eq 0xfe) { return New-Object System.Text.UnicodeEncoding }
-    if ($byte[0] -eq 0xfe -and $byte[1] -eq 0xff) { return New-Object System.Text.BigEndianUnicodeEncoding }
-    if ($byte[0] -eq 0 -and $byte[1] -eq 0 -and $byte[2] -eq 0xfe -and $byte[3] -eq 0xff) { return New-Object System.Text.UTF32Encoding }
-    
-    return New-Object System.Text.ASCIIEncoding
-}
-
 # Process each CSV file
 foreach ($csvPath in $csvFiles) {
 
@@ -29,11 +14,8 @@ foreach ($csvPath in $csvFiles) {
         continue
     }
 
-    # Detect the encoding of the file
-    $encoding = Get-FileEncoding -Path $csvPath.FullName
-    
-    # Read the CSV file and replace spaces using the detected encoding
-    $content = Get-Content -Path $csvPath.FullName -Raw -Encoding $encoding.EncodingName
+    # Read the CSV file and replace spaces
+    $content = Get-Content -Path $csvPath.FullName -Raw -Encoding Default
     $noSpacesContent = $content -replace ' ', ''
 
     # Convert the string content back to CSV object for structured manipulation
@@ -54,6 +36,6 @@ foreach ($csvPath in $csvFiles) {
     $newFileName = "$($csvPath.BaseName)_$currentDate.csv"
     $newFilePath = Join-Path -Path $csvPath.DirectoryName -ChildPath $newFileName
 
-    # Save the modified content to the new CSV file in UTF-8
-    $csvData | Export-Csv -Path $newFilePath -NoTypeInformation -Encoding UTF8
+    # Save the modified content to the new CSV file
+    $csvData | Export-Csv -Path $newFilePath -NoTypeInformation
 }
