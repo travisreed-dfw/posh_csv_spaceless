@@ -14,29 +14,27 @@ foreach ($csvPath in $csvFiles) {
         continue
     }
 
-    # Read the CSV file, replace spaces first, then replace question marks
-    $content = Get-Content -Path $csvPath.FullName -Raw -Encoding Default
-    $noSpacesContent = $content -replace ' ', ''
-    
-    # Convert the string content back to CSV object for structured manipulation
-    $csvData = $noSpacesContent | ConvertFrom-Csv
+    # Import the CSV
+    $data = Import-Csv $csvPath.FullName
 
-    # Update the specified columns
-    foreach ($row in $csvData) {
+    # Process each row and cell to remove trailing spaces and update specified columns
+    $processedData = $data | ForEach-Object {
+        $row = $_
+
+        # Update the specified columns
         if ($row.PSObject.Properties.Name -contains $columnName1) {
-            $row.$columnName1 = $row.$columnName1 -replace ',', ', '
+            $row.$columnName1 = ($row.$columnName1 -replace ',', ', ').TrimEnd()
         }
         if ($row.PSObject.Properties.Name -contains $columnName2) {
-            $row.$columnName2 = $row.$columnName2 -replace ',', ', '
+            $row.$columnName2 = ($row.$columnName2 -replace ',', ', ').TrimEnd()
         }
-    }
-    
-    # Remove all question marks from the entire CSV data
-    $csvData = $csvData | ForEach-Object {
-        $_.PSObject.Properties | ForEach-Object {
-            $_.Value = $_.Value -replace '\?', ''
+
+        # Trim trailing spaces from all columns
+        $row.PsObject.Properties | ForEach-Object {
+            $row.$($_.Name) = $row.$($_.Name).TrimEnd()
         }
-        return $_
+
+        return $row
     }
 
     # Generate the new filename with date and time appended
@@ -44,6 +42,8 @@ foreach ($csvPath in $csvFiles) {
     $newFileName = "$($csvPath.BaseName)_$currentDate.csv"
     $newFilePath = Join-Path -Path $csvPath.DirectoryName -ChildPath $newFileName
 
-    # Save the modified content to the new CSV file with Default encoding
-    $csvData | Export-Csv -Path $newFilePath -NoTypeInformation -Encoding Default
+    # Export the processed data to the new file
+    $processedData | Export-Csv $newFilePath -NoTypeInformation -Encoding Default
+
+    Write-Output "File saved to: $newFilePath"
 }
