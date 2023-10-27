@@ -23,13 +23,15 @@ foreach ($csvPath in $csvFiles) {
             foreach ($property in $row.PSObject.Properties) {
                 $row.$property.Name = $row.$property.Name.Trim()
             }
-
+        
             # Update the specified columns
             if ($columnName1 -in $row.PSObject.Properties.Name) {
-                $row.$columnName1 = $row.$columnName1 -replace ',', ', '
+                # Replace comma only if not followed by a space
+                $row.$columnName1 = $row.$columnName1 -replace ',(?! )', ', '
             }
             if ($columnName2 -in $row.PSObject.Properties.Name) {
-                $row.$columnName2 = $row.$columnName2 -replace ',', ', '
+                # Replace comma only if not followed by a space
+                $row.$columnName2 = $row.$columnName2 -replace ',(?! )', ', '
             }
         }
 
